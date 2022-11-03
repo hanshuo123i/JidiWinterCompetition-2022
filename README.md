@@ -2,12 +2,12 @@
 
 ## Environment
 
-<img src=https://jidi-images.oss-cn-beijing.aliyuncs.com/jidi/env72.gif width=600>
+<img src="https://jidi-images.oss-cn-beijing.aliyuncs.com/jidi/env72.gif" width=600>
 
 ### Olympics-Table Hockey
 <b>Tags: </b>Partial Observation; Continuous Action Space; Continuous Observation Space
 
-<b>Introduction: </b>Agents participate in the Olympic Games. In this series of competitions, two agents participate in 1vs1 football game.
+<b>Introduction: </b>Agents participate in the Olympic Games. In this series of competitions, two agents participate in 1vs1 table hockey game.
 
 <b>Environment Rules:</b> 
 1. This game has two sides and both sides control an elastic ball agent with the same mass and radius. Agents can collide with each other or walls, but they will lose a certain speed according to the wall friction coefficient. 
