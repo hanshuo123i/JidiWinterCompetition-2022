@@ -6,3 +6,8 @@ logs/
 olympics_engine/__pycache__/
 olympics_engine/scenario/__pycache__/
 olympics_engine/test/.pytest_cache/
+model[s]/
+*/model[s]/*
+*/*/model[s]/*
+*/log[s]/*
+*/*/log[s]/*
