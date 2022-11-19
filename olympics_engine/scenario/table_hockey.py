@@ -98,7 +98,9 @@ class table_hockey(OlympicsBase):
 
         output_obs_next = self._build_from_raw_obs(obs_next)
 
-        return output_obs_next, step_reward, done, ''
+        return output_obs_next, step_reward, done, '', \
+               {'accel': self.agent_accel, 'pos': self.agent_pos, 'theta': self.agent_theta, 
+                'v': self.agent_v, 'energy': None}
 
     def _build_from_raw_obs(self, obs):
         if self.minimap_mode:

@@ -297,7 +297,7 @@ class Olympics(Game):
         if self.env_core.game_name == 'integrated':
             info_before['current_game'] = self.env_core.game_name
 
-        all_observations, reward, done, info_after = self.env_core.step(joint_action_decode)
+        all_observations, reward, done, info_after, attri_dict = self.env_core.step(joint_action_decode)
         if self.game_name == 'running':
             info_after = self.step_before_info()
         else:
@@ -319,8 +319,8 @@ class Olympics(Game):
             if self.game_name == 'football' or self.game_name == 'tablehockey':
                 self.ball_position()
             self.set_n_return()
-
-        return self.all_observes, reward, self.done, info_before, info_after
+        attri_dict['energy'] = info_after['agent_energy']
+        return self.all_observes, reward, self.done, info_before, info_after, attri_dict
 
     def is_valid_action(self, joint_action):
         if len(joint_action) != self.n_player:  # check number of player
