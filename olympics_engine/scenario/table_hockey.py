@@ -49,7 +49,9 @@ class table_hockey(OlympicsBase):
             self._build_minimap()
 
         output_init_obs = self._build_from_raw_obs(init_obs)
-        return output_init_obs
+        return output_init_obs, \
+               {'accel': self.agent_accel, 'pos': self.agent_pos, 'theta': self.agent_theta,
+                'v': self.agent_v, 'energy': None}
 
     def ball_pos_init(self):
         y_min, y_max = 300, 500

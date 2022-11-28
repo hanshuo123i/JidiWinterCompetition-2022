@@ -160,22 +160,21 @@ if __name__ == "__main__":
 
     env_type = "olympics-tablehockey"
     game = make(env_type, seed=None)
-
-    render_mode = False
     multi_part_agent_ids, actions_space = get_players_and_action_space_list(game)
-    
-    
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--my_ai", default="random", help="random")
-    parser.add_argument("--opponent", default="random", help="random")
-    args = parser.parse_args()
 
-    # policy_list = ["random"] * len(game.agent_nums)
-    policy_list = [args.opponent, args.my_ai] #["random"] * len(game.agent_nums), here we control agent 2 (green agent)
+    # render_mode = True
+    #
+    #
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--my_ai", default="td3_lstm", help="random")  # agent 1
+    # parser.add_argument("--opponent", default="random", help="random")  # agent 0
+    # args = parser.parse_args()
+    #
+    # # policy_list = ["random"] * len(game.agent_nums)
+    # policy_list = [args.opponent, args.my_ai] #["random"] * len(game.agent_nums), here we control agent 2 (green agent)
+    #
+    # run_game(game, env_type, multi_part_agent_ids, actions_space, policy_list, render_mode)
 
-    run_game(game, env_type, multi_part_agent_ids, actions_space, policy_list, render_mode)
-    
-    
-    # from agents.td3_lstm.submission import run
-    # from agents.td3_lstm.my_submission import my_controller as enemy_controller
-    # run(game, actions_space, enemy_controller)
+    from agents.td3_lstm.my_submission import run
+    from agents.random.submission import my_controller as enemy_controller
+    run(game, actions_space, enemy_controller)

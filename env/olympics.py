@@ -117,8 +117,9 @@ class Olympics(Game):
         self.done = False
         self.won = {}
         self.n_return = [0] * self.n_player
+        attri_dict = None
         if self.game_name == 'billiard':
-            init_obs = self.env_core.reset()
+            init_obs, attri_dict = self.env_core.reset()
 
             self.init_info["agent_position"] = self.env_core.agent_pos
             self.init_info["agent_direction"] = [self.env_core.agent_theta[i][0] for i in range(
@@ -135,9 +136,8 @@ class Olympics(Game):
             self.init_info['agent2idx'] = list(self.env_core.agent2idx.keys())
 
             self.current_state = init_obs
-            self.all_observes = self.get_all_observes()
         elif self.game_name == 'tablehockey':
-            init_obs = self.env_core.reset()
+            init_obs, attri_dict = self.env_core.reset()
             self.ball_pos_init()
 
             self.init_info["agent_position"] = self.env_core.agent_pos
@@ -156,6 +156,7 @@ class Olympics(Game):
             self.current_state = init_obs
             self.all_observes = self.get_all_observes()
             self.ball_end_pos = None
+            attri_dict['energy'] = self.init_info['agent_energy']
 
         elif self.game_name == 'football':
             init_obs = self.env_core.reset()
@@ -279,7 +280,7 @@ class Olympics(Game):
 
             self.current_state = self.env_core.get_obs()
             self.all_observes = self.get_all_observes()
-        return self.all_observes
+        return self.all_observes, attri_dict
 
     def ball_pos_init(self):
         y_min, y_max = 300, 500
