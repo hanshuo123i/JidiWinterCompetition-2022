@@ -15,7 +15,7 @@ class TD3Config:
         self.device = torch.device("cuda")  # 检测GPU
         self.train_eps = 8000  # 训练的回合数
         self.start_timestep = 25e3  # Time steps initial random policy is used
-        self.epsilon_start = -1  # Episodes initial random policy is used
+        self.epsilon_start = 50  # Episodes initial random policy is used
         self.eval_freq = 5  # How often (episodes) we evaluate
         self.max_timestep = 100000  # Max time steps to run environment
         self.expl_noise = 0.3  # Std of Gaussian exploration noise
@@ -181,10 +181,10 @@ def train(cfg, env, agent, enemy_controller, action_space, replay_buffer):
 
         while not done:
             hidden_in = hidden_out
-            try:
-                env.env_core.render()
-            except:
-                print('a')  # render可能会出错
+            # try:
+            #     env.env_core.render()
+            # except:
+            #     print('a')  # render可能会出错
             ep_timesteps += 1
 
             if cfg.is_test:
