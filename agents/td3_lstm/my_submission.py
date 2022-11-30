@@ -53,6 +53,10 @@ from .agent import TD3_LSTM
 
 def get_reward(attri_dict, action):
     def point2point(p1, p2):
+        if isinstance(p1, dict):
+            p1 = [p1['x'], p1['y']]
+        if isinstance(p2, dict):
+            p2 = [p2['x'], p2['y']]
         return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
 
     def dot_product_angle(v1, v2):
@@ -65,36 +69,86 @@ def get_reward(attri_dict, action):
             return angle
         return 0
 
-    # 获取敌方到center的连线上与enemy一定距离的某个点
-    def get_center_enemy_point(enemy_pos, dis):
-        center_pos = [350, 400]  # 场地中心
-        if enemy_pos[0] == center_pos[0]:
-            y = enemy_pos[1] + dis if enemy_pos[1] < center_pos[1] else enemy_pos[1] - dis
-            return [enemy_pos[0], y]
-        k = (enemy_pos[1] - center_pos[1]) / (enemy_pos[0] - center_pos[0])
-        x1 = enemy_pos[0] + dis / math.sqrt(k ** 2 + 1)
-        x2 = enemy_pos[0] - dis / math.sqrt(k ** 2 + 1)
-        y1, y2 = k * (x1 - center_pos[0]) + center_pos[1], \
-                 k * (x2 - center_pos[0]) + center_pos[1]
+    # 获取p2到p1的连线上与p2一定距离的某个点
+    def get_point_between_p1p2(p1, p2, dis):
+        if isinstance(p1, dict):
+            p1 = [p1['x'], p1['y']]
+        if isinstance(p2, dict):
+            p2 = [p2['x'], p2['y']]
+        if p2[0] == p1[0]:
+            y = p2[1] + dis if p2[1] < p1[1] else p2[1] - dis
+            return [p2[0], y]
+        k = (p2[1] - p1[1]) / (p2[0] - p1[0])
+        x1 = p2[0] + dis / math.sqrt(k ** 2 + 1)
+        x2 = p2[0] - dis / math.sqrt(k ** 2 + 1)
+        y1, y2 = k * (x1 - p1[0]) + p1[1], \
+                 k * (x2 - p1[0]) + p1[1]
 
-        if point2point([x1, y1], center_pos) < point2point([x2, y2], center_pos):
+        if point2point([x1, y1], p1) < point2point([x2, y2], p1):
             return [x1, y1]
         return [x2, y2]
 
-    # 由p1指向p2的向量角度，水平向右为0度，时针为正
+    # 由p1指向p2的向量角度，水平向右为0度，顺时针为正
     def get_angle(p1, p2):
+        if isinstance(p1, dict):
+            p1 = [p1['x'], p1['y']]
+        if isinstance(p2, dict):
+            p2 = [p2['x'], p2['y']]
         pp_vector = np.array([p2[0] - p1[0], p2[1] - p1[1]])
         angle = dot_product_angle(pp_vector, np.array([1, 0]))
         if pp_vector[1] < 0:
             angle = -angle
         return angle
 
+    def pos_list2dict(pos_list):
+        return {'x': pos_list[0], 'y': pos_list[1]}
+
     # TODO：奖励函数
     reward = 0
+    right_goal_pos = [665, 400]
+    left_goal_pos = [35, 400]
+
+    agent_0_pos = pos_list2dict(attri_dict['pos'][0])
+    agent_1_pos = pos_list2dict(attri_dict['pos'][1])
+    ball_pos = pos_list2dict(attri_dict['pos'][2])
+    ball_vel = attri_dict['v'][2]
+
+    # agent_0的reward计算，agent_0['x']始终小于400
+    dis2ball = point2point(ball_pos, agent_0_pos)
+    if dis2ball < 60:
+        n_step = 0.0
+    elif dis2ball < 80:
+        n_step = 0.1
+    else:
+        n_step = 0.3
+    next_ball_pos = pos_list2dict([ball_pos['x'] + ball_vel[0] * n_step, ball_pos['y'] + ball_vel[1] * n_step])
+    agent_angle = get_angle(left_goal_pos, agent_0_pos)  # 左侧球门指向agent_0的角度
+    ball_angle = get_angle(left_goal_pos, ball_pos)
+    agent2goal = point2point(agent_0_pos, left_goal_pos)
+    ball2goal = point2point(left_goal_pos, ball_pos)
+
+    if ball_pos['x'] < 350:  # 如果球在左半场，那么控球权就在agent_0手上
+        target_pos = get_point_between_p1p2(left_goal_pos, next_ball_pos, 32)  # agent的目标位置应该是ball与goal连线上靠近ball的一点
+        dis2target = point2point(agent_0_pos, target_pos)
+        if agent2goal > ball2goal:  # 如果ball比agent更靠近球门，应该有一个惩罚
+            reward -= agent2goal / 200
+        elif dis2target > 120:
+            reward -= dis2target / 800
+        elif dis2target <= 120:
+            reward += (120 - dis2target) / 30
+    else:  # 如果球在右半场
+        target_pos = get_point_between_p1p2(next_ball_pos, left_goal_pos, 300)
+        dis2target = point2point(agent_0_pos, target_pos)
+        reward += (200 - dis2target) / 200
+
+    angle_error = abs(ball_angle - agent_angle)
+    if agent2goal < ball2goal and dis2target <= 200 and angle_error <= 30:
+        reward += (30 - angle_error) / 30
 
     return reward
 
 
+# agent_0作为训练智能体，agent_1作为陪练智能体
 def train(cfg, env, agent, enemy_controller, action_space, replay_buffer):
     print('开始训练!')
     rewards = []  # 记录所有回合的奖励
@@ -189,7 +243,7 @@ def train(cfg, env, agent, enemy_controller, action_space, replay_buffer):
             print('训练完成！')
 
         replay_buffer.push(init_hidden_in, init_hidden_out, episode_state, episode_action,
-                                      episode_last_action, episode_reward, episode_next_state, episode_done)
+                           episode_last_action, episode_reward, episode_next_state, episode_done)
 
         if (i_ep + 1) % 1 == 0:
             print('回合：{}/{}, 奖励：{:.2f}, 步数：{}, winner：{}'.
