@@ -1,5 +1,6 @@
 # Default ignored files
 .idea*
+.zip*
 .out*
 */__pycache__/*
 */*/__pycache__/*
