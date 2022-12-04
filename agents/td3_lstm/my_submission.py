@@ -15,10 +15,10 @@ class TD3Config:
         self.device = torch.device("cuda")  # 检测GPU
         self.train_eps = 8000  # 训练的回合数
         self.start_timestep = 25e3  # Time steps initial random policy is used
-        self.epsilon_start = 50  # Episodes initial random policy is used
+        self.epsilon_start = -1  # Episodes initial random policy is used
         self.eval_freq = 5  # How often (episodes) we evaluate
         self.max_timestep = 100000  # Max time steps to run environment
-        self.expl_noise = 0.3  # Std of Gaussian exploration noise
+        self.expl_noise = 0.2  # Std of Gaussian exploration noise
         self.gamma = 0.97  # gamma factor
         self.tau = 0.005  # 软更新
         self.policy_noise = 0.2  # Noise added to target policy during critic update
@@ -29,14 +29,14 @@ class TD3Config:
         self.n_actions = 2  # 动作维度
         self.hidden_dim = 256
 
-        self.batch_size = 2  # each sample contains an episode for lstm policy
+        self.batch_size = 1  # each sample contains an episode for lstm policy
         self.replay_buffer_size = 5e5
 
         self.is_test = False
+        self.load_model_epi = 2999
         self.if_my_rew = True
 
 
-# 非对称对抗似乎不需要
 def process_obs(obs):
     obs = copy.deepcopy(obs)
     if obs[32][19] == 8:  # player1的观察
@@ -70,7 +70,7 @@ def get_reward(attri_dict, action):
         return 0
 
     # 获取p2到p1的连线上与p2一定距离的某个点
-    def get_point_between_p1p2(p1, p2, dis):
+    def get_point_between_p1p2(p1, p2, dis, is_inside=True):
         if isinstance(p1, dict):
             p1 = [p1['x'], p1['y']]
         if isinstance(p2, dict):
@@ -85,8 +85,8 @@ def get_reward(attri_dict, action):
                  k * (x2 - p1[0]) + p1[1]
 
         if point2point([x1, y1], p1) < point2point([x2, y2], p1):
-            return [x1, y1]
-        return [x2, y2]
+            return [x1, y1] if is_inside else [x2, y2]
+        return [x2, y2] if is_inside else [x1, y1]
 
     # 由p1指向p2的向量角度，水平向右为0度，顺时针为正
     def get_angle(p1, p2):
@@ -103,7 +103,6 @@ def get_reward(attri_dict, action):
     def pos_list2dict(pos_list):
         return {'x': pos_list[0], 'y': pos_list[1]}
 
-    # TODO：奖励函数
     reward = 0
     right_goal_pos = [665, 400]
     left_goal_pos = [35, 400]
@@ -120,30 +119,40 @@ def get_reward(attri_dict, action):
     elif dis2ball < 80:
         n_step = 0.1
     else:
-        n_step = 0.3
+        n_step = 0.5  # TODO：修改的大一些，如0.5
     next_ball_pos = pos_list2dict([ball_pos['x'] + ball_vel[0] * n_step, ball_pos['y'] + ball_vel[1] * n_step])
     agent_angle = get_angle(left_goal_pos, agent_0_pos)  # 左侧球门指向agent_0的角度
     ball_angle = get_angle(left_goal_pos, ball_pos)
     agent2goal = point2point(agent_0_pos, left_goal_pos)
     ball2goal = point2point(left_goal_pos, ball_pos)
 
-    if ball_pos['x'] < 350:  # 如果球在左半场，那么控球权就在agent_0手上
+    # if ball_pos['x'] <= 350:
+    #     reward -= (400 - ball2goal) / 800
+    # else:
+    #     reward += 0.2
+
+    if ball_pos['x'] <= 350:  # 如果球在左半场，那么控球权就在agent_0手上
         target_pos = get_point_between_p1p2(left_goal_pos, next_ball_pos, 32)  # agent的目标位置应该是ball与goal连线上靠近ball的一点
+        if ball_pos['x'] > 200:  # 如果此时球不靠近球门，那么agent应瞄准对方球门
+            target_pos = get_point_between_p1p2(right_goal_pos, next_ball_pos, 35, is_inside=False)
         dis2target = point2point(agent_0_pos, target_pos)
-        if agent2goal > ball2goal:  # 如果ball比agent更靠近球门，应该有一个惩罚
+        if agent_0_pos['x'] > ball_pos['x']:  # 如果ball比agent更靠近球门，应该有一个惩罚  # TODO: 判断条件依据pos['x']是否会更好
             reward -= agent2goal / 200
         elif dis2target > 120:
             reward -= dis2target / 800
         elif dis2target <= 120:
-            reward += (120 - dis2target) / 30
+            reward += (120 - dis2target) / 80
     else:  # 如果球在右半场
         target_pos = get_point_between_p1p2(next_ball_pos, left_goal_pos, 300)
         dis2target = point2point(agent_0_pos, target_pos)
-        reward += (200 - dis2target) / 200
+        reward += (200 - dis2target) / 400
 
-    angle_error = abs(ball_angle - agent_angle)
-    if agent2goal < ball2goal and dis2target <= 200 and angle_error <= 30:
-        reward += (30 - angle_error) / 30
+    if agent_0_pos['x'] <= ball_pos['x']:
+        reward += 0.01
+
+    # angle_error = abs(ball_angle - agent_angle)
+    # if agent2goal < ball2goal and dis2target <= 200 and angle_error <= 30:
+    #     reward += (30 - angle_error) / 30
 
     return reward
 
@@ -152,9 +161,10 @@ def get_reward(attri_dict, action):
 def train(cfg, env, agent, enemy_controller, action_space, replay_buffer):
     print('开始训练!')
     rewards = []  # 记录所有回合的奖励
+    # agent.load(os.path.dirname(os.path.abspath(__file__)), cfg.load_model_epi)
     if cfg.is_test:
         print('加载模型')
-        agent.load(os.path.dirname(os.path.abspath(__file__)), 3499)
+        agent.load(os.path.dirname(os.path.abspath(__file__)), cfg.load_model_epi)
     else:
         cur_time = datetime.datetime.now()
         writer = SummaryWriter(f'./log/{cur_time.day}_{cur_time.hour}_{cur_time.minute}')
@@ -181,10 +191,10 @@ def train(cfg, env, agent, enemy_controller, action_space, replay_buffer):
 
         while not done:
             hidden_in = hidden_out
-            # try:
-            #     env.env_core.render()
-            # except:
-            #     print('a')  # render可能会出错
+            try:
+                env.env_core.render()
+            except:
+                print('a')  # render可能会出错
             ep_timesteps += 1
 
             if cfg.is_test:

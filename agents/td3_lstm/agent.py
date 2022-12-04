@@ -23,7 +23,7 @@ class TD3_LSTM:
         self.target_q_net1 = QNetCNNLSTM(obs_dim, hidden_dim, act_dim).to(self.device)
         self.target_q_net2 = QNetCNNLSTM(obs_dim, hidden_dim, act_dim).to(self.device)
         self.policy_net = PolicyCNNLSTM(obs_dim, hidden_dim, act_dim).to(self.device)
-        # self.policy_net.load_state_dict(torch.load('agents/td3_lstm/model/bc_rule_CNNLSTM.pt', map_location=self.device))
+        self.policy_net.load_state_dict(torch.load('agents/td3_lstm/model/bc_rule_ACTCNNLSTM.pt', map_location=self.device))
         self.target_policy_net = PolicyCNNLSTM(obs_dim, hidden_dim, act_dim).to(self.device)
 
         self.target_q_net1 = self.target_init(self.q_net1, self.target_q_net1)
